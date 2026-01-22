@@ -6,18 +6,25 @@ import markdown
 import time
 
 # --- 1. CONFIGURAÇÃO VISUAL ---
-st.set_page_config(page_title="Infinity Factory 6.5", layout="wide", page_icon="✨")
+st.set_page_config(page_title="Infinity Factory 7.0", layout="wide", page_icon="📚")
 
 def carregar_css():
     st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Inter:wght@400;600&display=swap');
+        
+        /* Visual Tela Escura */
         .stApp { background-color: #0E1117; font-family: 'Inter', sans-serif; }
         h1, h2, h3 { color: #FFFFFF !important; }
         p, label, .stMarkdown, .stTextInput label { color: #E0E0E0 !important; }
-        .stButton > button { background: linear-gradient(90deg, #FF4B4B 0%, #FF914D 100%); color: white; border: none; padding: 12px; border-radius: 8px; width: 100%; transition: 0.3s; }
+        
+        .stButton > button { 
+            background: linear-gradient(90deg, #d53369 0%, #daae51 100%); 
+            color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold;
+            width: 100%; transition: 0.3s;
+        }
         .stButton > button:hover { transform: scale(1.02); }
-        [data-testid="stSidebar"] { background-color: #1A1C24; border-right: 1px solid #333; }
+        [data-testid="stSidebar"] { background-color: #111; border-right: 1px solid #333; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -27,35 +34,48 @@ def check_password():
     if st.session_state.authenticated: return True
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<br><h1 style='text-align: center;'>🔒 Acesso Restrito</h1>", unsafe_allow_html=True)
+        st.markdown("<br><h1 style='text-align: center;'>🔒 Factory 7.0</h1>", unsafe_allow_html=True)
         senha = st.text_input("Senha", type="password")
         if st.button("ENTRAR"):
             if senha == "admin": 
                 st.session_state.authenticated = True
                 st.rerun()
-            else: st.error("Senha incorreta.")
+            else: st.error("Acesso Negado.")
     return False
 
-# --- 3. LÓGICA IA ---
+# --- 3. IA (MODO ESCRITOR SÊNIOR) ---
 def get_client(api_key):
     return openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
 def gerar_texto_rico(client, prompt, contexto=""):
+    system_prompt = """
+    Você é um ESCRITOR SÊNIOR de livros didáticos e técnicos.
+    
+    SUAS REGRAS INEGOCIÁVEIS:
+    1. PROFUNDIDADE: Nunca dê respostas curtas. Cada tópico deve ter parágrafos explicativos longos.
+    2. ESTRUTURA: Introduza o conceito, explique o 'porquê', dê exemplos e só depois faça listas.
+    3. FORMATO: Use Markdown.
+       - Use ## para Títulos de Seção (Não use #, pois # é só para o título do capítulo).
+       - Use **Negrito** para destacar termos chave.
+    4. NÃO repita o título do capítulo no começo do texto. Comece direto no conteúdo.
+    """
+    
+    user_prompt = f"""
+    CONTEXTO DO LIVRO: {contexto}
+    
+    SUA MISSÃO AGORA: {prompt}
+    
+    Escreva pelo menos 1000 palavras. Seja denso.
+    """
+
     try:
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": """
-                Você é um diagramador de livros.
-                REGRAS DE FORMATAÇÃO:
-                1. Use Títulos (##) para separar seções importantes.
-                2. NUNCA faça listas longas com títulos em negrito na mesma linha (Ex: NÃO faça '**Titulo**: texto').
-                3. Ao invés disso, quebre em parágrafos ou use subtítulos.
-                4. Use Markdown padrão.
-                """},
-                {"role": "user", "content": f"CONTEXTO: {contexto}\nTAREFA: {prompt}"}
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
             ],
-            temperature=0.6
+            temperature=0.7 # Aumentei um pouco para ele ser mais criativo/longo
         )
         return response.choices[0].message.content
     except: return None
@@ -64,29 +84,27 @@ def get_image_base64(image_file):
     if image_file: return base64.b64encode(image_file.getvalue()).decode()
     return None
 
-# --- 4. GERADOR DE HTML (CORREÇÃO DE MARGENS E ESPAÇAMENTO) ---
+# --- 4. GERADOR DE HTML (MARGENS FORÇADAS) ---
 def gerar_html_download(tema, conteudo_raw, img_b64, estilo):
     if not conteudo_raw: conteudo_raw = "Vazio"
     
-    # Converte Markdown para HTML
+    # Markdown -> HTML
     html_body = markdown.markdown(conteudo_raw)
-    
-    # Tratamento de quebras
     html_body = html_body.replace("<hr />", "<div class='page-break'></div>")
 
-    # Cores
+    # Estilos
     cores = {
-        "Clássico": {"h1": "#000", "acc": "#333", "font": "'Times New Roman', serif", "bg": "#fff"},
-        "Moderno": {"h1": "#1a1a1a", "acc": "#0056b3", "font": "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", "bg": "#fff"},
-        "Clean": {"h1": "#333", "acc": "#e67e22", "font": "'Helvetica Neue', Helvetica, Arial, sans-serif", "bg": "#fff"}
+        "Clássico": {"h1": "#000", "acc": "#000", "font": "'Merriweather', serif"},
+        "Moderno": {"h1": "#2c3e50", "acc": "#2980b9", "font": "'Inter', sans-serif"},
+        "Dark": {"h1": "#000", "acc": "#c0392b", "font": "Arial, sans-serif"}
     }
     c = cores.get(estilo, cores["Moderno"])
     
     capa = f"""
-    <div class='capa'>
-        <div style='margin-bottom: 50px;'></div>
+    <div class='capa-container'>
+        <div style='height: 100px;'></div>
         <img src='data:image/jpeg;base64,{img_b64}'>
-        <h1 style='font-size:36pt; margin-top:40px; text-transform: uppercase;'>{tema}</h1>
+        <h1 style='font-size: 40pt; margin-top: 50px; text-transform: uppercase;'>{tema}</h1>
     </div>
     <div class='page-break'></div>
     """ if img_b64 else ""
@@ -96,93 +114,73 @@ def gerar_html_download(tema, conteudo_raw, img_b64, estilo):
     <html>
     <head>
     <style>
-        /* CONFIGURAÇÃO DA FOLHA */
-        @page {{ size: A4; margin: 0; }}
-        
-        body {{ 
-            margin: 0; padding: 0; 
-            background-color: #555; 
-            -webkit-print-color-adjust: exact; 
+        /* FONTS */
+        @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;700&family=Inter:wght@400;700&display=swap');
+
+        /* --- CONFIGURAÇÃO CRÍTICA DE IMPRESSÃO --- */
+        @page {{
+            size: A4;
+            margin: 2.5cm; /* ISSO GARANTE QUE NÃO COMEÇA NO TETO */
         }}
-        
-        .folha-a4 {{
-            background: white;
-            width: 210mm;
-            min-height: 297mm;
-            margin: 40px auto;
-            /* AQUI ESTÁ O SEGREDO DAS MARGENS: */
-            padding-top: 3cm;
-            padding-bottom: 3cm;
-            padding-left: 2.5cm;
-            padding-right: 2.5cm;
-            box-sizing: border-box;
-            
-            /* Tipografia */
+
+        body {{
             font-family: {c['font']};
-            font-size: 12pt; 
-            line-height: 1.8; /* Espaçamento entre linhas maior */
-            color: #222;
+            font-size: 12pt;
+            line-height: 1.8;
+            color: #111;
+            background: white;
             text-align: justify;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }}
+
+        /* Títulos */
+        h1 {{ font-size: 24pt; color: {c['h1']}; border-bottom: 3px solid {c['acc']}; padding-bottom: 10px; margin-top: 0; margin-bottom: 30px; page-break-after: avoid; }}
+        h2 {{ font-size: 16pt; color: {c['acc']}; margin-top: 40px; margin-bottom: 15px; font-weight: bold; page-break-after: avoid; }}
+        h3 {{ font-size: 14pt; color: #444; margin-top: 30px; margin-bottom: 10px; page-break-after: avoid; }}
+
+        /* Texto */
+        p {{ margin-bottom: 15px; }}
         
-        /* FORMATAÇÃO DO TEXTO */
-        h1 {{ font-size: 26pt; color: {c['h1']}; margin-bottom: 0.5em; page-break-after: avoid; }}
+        /* Listas */
+        ul, ol {{ margin-bottom: 20px; padding-left: 20px; }}
+        li {{ margin-bottom: 8px; }}
+
+        /* Imagens */
+        img {{ max-width: 100%; border-radius: 4px; }}
         
-        h2 {{ 
-            font-size: 18pt; 
-            color: {c['acc']}; 
-            margin-top: 2em; /* Mais espaço antes do título */
-            margin-bottom: 0.8em; 
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-            page-break-after: avoid;
-        }}
+        /* Capa */
+        .capa-container {{ text-align: center; page-break-after: always; }}
+        .capa-container img {{ max-height: 600px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); }}
+
+        /* Utilitários */
+        .page-break {{ page-break-after: always; }}
         
-        h3 {{ font-size: 14pt; color: #444; margin-top: 1.5em; font-weight: bold; }}
-        
-        p {{ margin-bottom: 1.5em; }} /* Espaço entre parágrafos */
-        
-        /* LISTAS MAIS BONITAS (Corrige o texto grudado) */
-        ul, ol {{ margin-bottom: 1.5em; padding-left: 20px; }}
-        li {{ 
-            margin-bottom: 10px; /* Espaço entre itens da lista */
-            padding-left: 5px;
-        }}
-        strong {{ color: {c['acc']}; font-weight: 700; }}
-        
-        /* CAPA */
-        .capa {{ text-align: center; display: flex; flex-direction: column; justify-content: center; height: 80%; }}
-        .capa img {{ max-width: 90%; max-height: 500px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.15); }}
-        
-        /* IMPRESSÃO */
         @media print {{
-            body {{ background: none; }}
-            .folha-a4 {{ margin: 0; box-shadow: none; width: 100%; height: auto; }}
-            .page-break {{ page-break-after: always; }}
+            body {{ background: white; }}
+            /* Forçar quebras limpas */
+            p, li {{ page-break-inside: avoid; }}
             h1, h2, h3 {{ page-break-after: avoid; }}
-            img {{ page-break-inside: avoid; }}
-            li {{ page-break-inside: avoid; }}
         }}
     </style>
     </head>
-    <body><div class="folha-a4">{capa}{html_body}</div></body>
+    <body>
+        {capa}
+        {html_body}
+    </body>
     </html>
     """
 
 # --- INICIALIZAÇÃO ---
-if "dados" not in st.session_state: 
-    st.session_state.dados = {"tema": "", "publico": "", "sumario": "", "conteudo": ""}
+if "dados" not in st.session_state: st.session_state.dados = {"tema": "", "publico": "", "sumario": "", "conteudo": ""}
 carregar_css()
 
 # --- APP ---
 if check_password():
-    st.sidebar.title("🚀 Infinity 6.5")
+    st.sidebar.title("🚀 Factory 7.0")
     api_key = st.sidebar.text_input("API Key Groq", type="password")
     
     with st.sidebar.expander("💾 Backup"):
-        st.download_button("Salvar", json.dumps(st.session_state.dados), "backup.json")
-        f = st.file_uploader("Carregar", type=["json"])
+        st.download_button("Salvar JSON", json.dumps(st.session_state.dados), "projeto.json")
+        f = st.file_uploader("Carregar JSON", type=["json"])
         if f: 
             st.session_state.dados = json.load(f)
             st.success("Carregado!"); time.sleep(1); st.rerun()
@@ -190,7 +188,7 @@ if check_password():
     if not api_key: st.stop()
     client = get_client(api_key)
 
-    t1, t2, t3 = st.tabs(["Planejamento", "Produção", "Entrega"])
+    t1, t2, t3 = st.tabs(["1. Planejar", "2. Escrever", "3. Exportar"])
     
     with t1:
         c1, c2 = st.columns(2)
@@ -198,31 +196,32 @@ if check_password():
             st.session_state.dados["tema"] = st.text_input("Tema", value=st.session_state.dados["tema"])
             st.session_state.dados["publico"] = st.text_input("Público", value=st.session_state.dados["publico"])
         with c2:
-            if st.button("✨ Gerar Sumário"):
-                prompt = f"Crie um sumário para e-book sobre '{st.session_state.dados['tema']}' (Público: {st.session_state.dados['publico']}). 5 capítulos."
+            if st.button("Gerar Sumário"):
+                prompt = f"Crie sumário DETALHADO para livro '{st.session_state.dados['tema']}' (Público: {st.session_state.dados['publico']}). 5 capítulos."
                 st.session_state.dados["sumario"] = gerar_texto_rico(client, prompt)
                 st.rerun()
         if st.session_state.dados["sumario"]: st.markdown(st.session_state.dados["sumario"])
 
     with t2:
-        if st.button("🔥 Escrever Livro Completo"):
+        if st.button("🔥 Escrever Livro (Modo Profundo)"):
             if not st.session_state.dados["sumario"]: st.error("Falta sumário")
             else:
                 bar = st.progress(0)
                 st.session_state.dados["conteudo"] = ""
-                ctx = f"Livro: {st.session_state.dados['tema']}."
+                ctx = f"Livro: {st.session_state.dados['tema']}. Público: {st.session_state.dados['publico']}."
                 for i in range(1, 6):
-                    # Prompt ajustado para evitar formatação ruim
-                    txt = gerar_texto_rico(client, f"Escreva o CAPÍTULO {i}. Use subtítulos (##) em vez de negrito para separar ideias. Use parágrafos curtos.", ctx)
+                    # Prompt reforçado para profundidade
+                    p = f"Escreva o CAPÍTULO {i}. Explique os conceitos profundamente antes de listar tópicos. Use subtítulos ##."
+                    txt = gerar_texto_rico(client, p, ctx)
                     if txt: st.session_state.dados["conteudo"] += f"# Capítulo {i}\n\n{txt}\n\n---\n"
                     bar.progress(i/5)
-                st.success("Pronto!")
+                st.success("Texto Gerado!")
                 st.rerun()
         if st.session_state.dados["conteudo"]: st.markdown(st.session_state.dados["conteudo"])
 
     with t3:
         c_a, c_b = st.columns(2)
-        with c_a: estilo = st.selectbox("Estilo", ["Moderno", "Clássico", "Clean"])
+        with c_a: estilo = st.selectbox("Estilo", ["Moderno", "Clássico", "Dark"])
         with c_b: img = st.file_uploader("Capa", type=['jpg','png'])
         
         if st.session_state.dados["conteudo"]:
