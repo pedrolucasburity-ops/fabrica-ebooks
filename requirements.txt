@@ -1,6 +1,2 @@
 streamlit
 openai
-markdown
-xhtml2pdf
-reportlab
-html5lib
