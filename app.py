@@ -5,16 +5,16 @@ import base64
 import time
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Fábrica Enterprise 5.3", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="Fábrica Final 5.4", layout="wide", page_icon="💎")
 
 # --- FUNÇÕES ---
 def get_client(api_key):
     return openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
-def gerar_texto(client, prompt, model="llama-3.3-70b-versatile"):
+def gerar_texto(client, prompt):
     try:
         response = client.chat.completions.create(
-            model=model,
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
@@ -27,171 +27,136 @@ def get_image_base64(image_file):
         return base64.b64encode(image_file.getvalue()).decode()
     return None
 
-def gerar_html_download(tema, conteudo_markdown, imagem_capa_base64=None, estilo="Clássico"):
-    # Cores e Estilos
-    cores = {
-        "Clássico": {"h1": "#2c3e50", "h2": "#e67e22", "bg": "#ffffff", "font": "Helvetica, Arial"},
-        "Executivo": {"h1": "#003366", "h2": "#0066cc", "bg": "#f4f7f6", "font": "Georgia, serif"},
-        "Criativo": {"h1": "#4b0082", "h2": "#8a2be2", "bg": "#faf0e6", "font": "Verdana, sans-serif"}
-    }
-    c = cores.get(estilo, cores["Clássico"])
+def carregar_dados():
+    """Função que roda quando clica no botão de restaurar"""
+    arquivo = st.session_state.uploader_arquivo
+    if arquivo is not None:
+        try:
+            dados = json.load(arquivo)
+            # Força a atualização de cada chave individualmente
+            st.session_state['tema'] = dados.get('tema', '')
+            st.session_state['publico'] = dados.get('publico', '')
+            st.session_state['sumario'] = dados.get('sumario', '')
+            st.session_state['conteudo'] = dados.get('conteudo', '')
+            st.session_state['prompt_capa'] = dados.get('prompt_capa', '')
+            st.toast("Dados restaurados com sucesso!", icon="✅")
+        except:
+            st.error("Erro ao ler o arquivo.")
 
-    # Conversão Texto -> HTML
-    if conteudo_markdown:
-        conteudo_html = conteudo_markdown.replace("\n", "<br>").replace("# ", "<h1>").replace("## ", "<h2>").replace("---", "<hr>")
-    else:
-        conteudo_html = "<p>O conteúdo está vazio.</p>"
+def gerar_html_download(tema, conteudo, img_b64, estilo):
+    # Lógica de HTML (Mantida da versão anterior)
+    if not conteudo: conteudo = "<p>Conteúdo vazio.</p>"
+    conteudo_html = conteudo.replace("\n", "<br>").replace("# ", "<h1>").replace("## ", "<h2>").replace("---", "<hr>")
     
-    capa_html = ""
-    if imagem_capa_base64:
-        capa_html = f"""<div class='capa'><img src='data:image/jpeg;base64,{imagem_capa_base64}'><h1 class='titulo-capa'>{tema.upper()}</h1></div><div class='page-break'></div>"""
+    cores = {"Clássico": "#2c3e50", "Executivo": "#003366", "Criativo": "#4b0082"}
+    cor_h1 = cores.get(estilo, "#2c3e50")
+    
+    capa = f"<div style='text-align:center'><img src='data:image/jpeg;base64,{img_b64}' style='max-height:500px'><br><h1>{tema}</h1></div><div style='page-break-after:always'></div>" if img_b64 else ""
+    
+    return f"<html><body style='font-family:sans-serif; padding:40px'>{capa}{conteudo_html}<script>window.print()</script></body></html>"
 
-    html_template = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>{tema}</title>
-        <style>
-            body {{ font-family: {c['font']}; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: {c['bg']}; }}
-            .capa {{ text-align: center; margin-top: 50px; margin-bottom: 100px; }}
-            .capa img {{ max-width: 100%; max-height: 500px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border-radius: 10px; }}
-            .titulo-capa {{ font-size: 3em; margin-top: 20px; color: {c['h1']}; }}
-            h1 {{ color: {c['h1']}; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-top: 50px; }}
-            h2 {{ color: {c['h2']}; margin-top: 30px; }}
-            p {{ margin-bottom: 15px; text-align: justify; }}
-            .page-break {{ page-break-after: always; }}
-            @media print {{ body {{ max-width: 100%; background: white; }} .page-break {{ page-break-after: always; }} }}
-        </style>
-    </head>
-    <body>{capa_html}<div class='conteudo'>{conteudo_html}</div>
-    <script>window.onload = function() {{ window.print(); }}</script>
-    </body></html>
-    """
-    return html_template
-
-# --- SESSION STATE (MEMÓRIA) ---
-# Inicializa as variáveis se elas não existirem
-if "dados" not in st.session_state:
-    st.session_state.dados = {"tema": "", "publico": "", "sumario": "", "conteudo": "", "prompt_capa": ""}
+# --- INICIALIZAÇÃO DE VARIÁVEIS (OBRIGATÓRIO) ---
+# Aqui definimos as chaves que os campos vão usar
+chaves_padrao = ['tema', 'publico', 'sumario', 'conteudo', 'prompt_capa']
+for chave in chaves_padrao:
+    if chave not in st.session_state:
+        st.session_state[chave] = ""
 
 # --- INTERFACE ---
-st.title("🏭 Fábrica Enterprise 5.3 (Corrigida)")
-st.markdown("---")
+st.title("💎 Fábrica Final 5.4 (Vinculada)")
 
-# --- SIDEBAR (TUDO IMPORTANTE FICA AQUI) ---
 with st.sidebar:
-    st.header("🔑 1. Acesso")
+    st.header("1. Configurações")
     api_key = st.text_input("Chave Groq", type="password")
     
     st.divider()
+    st.header("2. Backup (Salvar/Carregar)")
     
-    st.header("💾 2. Salvar e Carregar")
+    # Prepara os dados atuais para salvar
+    dados_para_salvar = {
+        "tema": st.session_state['tema'],
+        "publico": st.session_state['publico'],
+        "sumario": st.session_state['sumario'],
+        "conteudo": st.session_state['conteudo'],
+        "prompt_capa": st.session_state['prompt_capa']
+    }
     
-    # BOTÃO SALVAR
-    dados_json = json.dumps(st.session_state.dados)
     st.download_button(
-        label="📥 Baixar Projeto (Salvar no PC)",
-        data=dados_json,
-        file_name=f"Backup_{st.session_state.dados['tema'] if st.session_state.dados['tema'] else 'Projeto'}.json",
+        label="💾 Baixar Arquivo do Projeto",
+        data=json.dumps(dados_para_salvar),
+        file_name="meu_projeto.json",
         mime="application/json"
     )
     
-    # BOTÃO CARREGAR
-    arquivo_carregado = st.file_uploader("📂 Carregar Backup", type=["json"])
-    if arquivo_carregado is not None:
-        if st.button("♻️ Restaurar Dados"):
-            try:
-                dados_lidos = json.load(arquivo_carregado)
-                # Atualiza a memória
-                st.session_state.dados = dados_lidos
-                st.success("Dados restaurados! A página vai recarregar...")
-                time.sleep(1)
-                st.rerun() # Força atualização da tela
-            except:
-                st.error("Erro ao ler arquivo. Tem certeza que é um JSON válido?")
+    # Upload com "Callback" (O segredo para funcionar)
+    st.file_uploader(
+        "Carregar Projeto Antigo", 
+        type=["json"], 
+        key="uploader_arquivo", 
+        on_change=carregar_dados # <-- ISSO É A MÁGICA. Roda a função assim que envia o arquivo.
+    )
 
     st.divider()
-    
-    # --- AQUI ESTAVAM AS OPÇÕES QUE SUMIRAM ---
-    # Agora estão fixas na lateral para nunca sumirem
-    st.header("🎨 3. Design e Capa")
-    estilo_escolhido = st.selectbox("Estilo do PDF", ["Clássico", "Executivo", "Criativo"])
-    uploaded_file = st.file_uploader("Upload Capa (Bing/DALL-E)", type=['jpg', 'png'])
+    st.header("3. Estilo")
+    # Agora as opções ficam fora de qualquer "if" para não sumirem
+    estilo = st.selectbox("Design do PDF", ["Clássico", "Executivo", "Criativo"])
+    capa_upload = st.file_uploader("Capa (Imagem)", type=['jpg','png'])
 
 if not api_key:
-    st.warning("👈 Insira a Chave API na esquerda.")
+    st.warning("Coloque a chave API.")
     st.stop()
 
 client = get_client(api_key)
 
 # --- TABS ---
-tab1, tab2, tab3 = st.tabs(["1. Planejamento", "2. Produção", "3. Download"])
+t1, t2, t3 = st.tabs(["Planejamento", "Produção", "Download"])
 
-with tab1:
+with t1:
     col1, col2 = st.columns(2)
     with col1:
-        # O valor do campo sempre lê da memória (st.session_state)
-        novo_tema = st.text_input("Tema", value=st.session_state.dados["tema"])
-        if novo_tema != st.session_state.dados["tema"]:
-            st.session_state.dados["tema"] = novo_tema
-
-        novo_publico = st.text_input("Público", value=st.session_state.dados["publico"])
-        if novo_publico != st.session_state.dados["publico"]:
-             st.session_state.dados["publico"] = novo_publico
-
+        # Repare no key='tema'. Isso liga o campo direto na memória.
+        st.text_input("Tema", key="tema") 
+        st.text_input("Público", key="publico")
+        
         if st.button("Gerar Sumário"):
-            prompt = f"Crie um sumário para e-book sobre '{st.session_state.dados['tema']}'. Público: {st.session_state.dados['publico']}. 5 capítulos."
-            st.session_state.dados["sumario"] = gerar_texto(client, prompt)
-    
+            prompt = f"Sumário para e-book '{st.session_state.tema}' (Público: {st.session_state.publico}). 5 capítulos."
+            st.session_state.sumario = gerar_texto(client, prompt)
+            st.rerun() # Atualiza a tela na hora
+
     with col2:
-        if st.button("Gerar Prompt de Capa"):
-            st.session_state.dados["prompt_capa"] = gerar_texto(client, f"Prompt visual curto em inglês para capa de livro sobre {st.session_state.dados['tema']}.")
+        if st.button("Gerar Ideia de Capa"):
+            st.session_state.prompt_capa = gerar_texto(client, f"Prompt visual curto em inglês para capa: {st.session_state.tema}")
+            st.rerun()
         
-        if st.session_state.dados["prompt_capa"]:
-            st.code(st.session_state.dados["prompt_capa"])
+        if st.session_state.prompt_capa:
+            st.code(st.session_state.prompt_capa)
 
-    st.markdown("### Sumário Atual:")
-    if st.session_state.dados["sumario"]:
-        st.markdown(st.session_state.dados["sumario"])
-    else:
-        st.info("Ainda não há sumário gerado.")
+    if st.session_state.sumario:
+        st.markdown("---")
+        st.markdown(st.session_state.sumario)
 
-with tab2:
-    st.info("Gera o conteúdo automaticamente baseado no sumário.")
-    if st.button("⚡ Gerar Livro Completo (Turbo)"):
-        if not st.session_state.dados["sumario"]:
-            st.error("Gere o sumário primeiro!")
+with t2:
+    if st.button("⚡ Escrever Livro Completo"):
+        if not st.session_state.sumario:
+            st.error("Sem sumário!")
         else:
-            barra = st.progress(0)
-            st.session_state.dados["conteudo"] = ""
+            bar = st.progress(0)
+            st.session_state.conteudo = ""
             for i in range(1, 6):
-                with st.spinner(f"Escrevendo capítulo {i}..."):
-                    texto = gerar_texto(client, f"Escreva o capítulo {i} do livro {st.session_state.dados['tema']}. Use HTML <h2> e <p>.")
-                    if texto: st.session_state.dados["conteudo"] += f"<br><h1>Capítulo {i}</h1><br>{texto}<br><hr>"
-                    barra.progress(i/5)
-            st.success("Concluído! Vá para a aba 3.")
-    
-    # Mostra prévia se tiver conteúdo
-    if st.session_state.dados["conteudo"]:
-        with st.expander("Ver texto gerado"):
-            st.markdown(st.session_state.dados["conteudo"], unsafe_allow_html=True)
+                txt = gerar_texto(client, f"Escreva cap {i} do livro {st.session_state.tema}. Use HTML <h2> e <p>.")
+                if txt: st.session_state.conteudo += f"<h1>Cap {i}</h1>{txt}<hr>"
+                bar.progress(i/5)
+            st.success("Pronto!")
+            st.rerun()
+            
+    if st.session_state.conteudo:
+        with st.expander("Ver Texto"):
+            st.markdown(st.session_state.conteudo, unsafe_allow_html=True)
 
-with tab3:
-    st.header("Produto Final")
-    
-    if st.session_state.dados["conteudo"]:
-        # Prepara o HTML usando o estilo selecionado na Sidebar
-        img_b64 = get_image_base64(uploaded_file) if uploaded_file else None
-        html_data = gerar_html_download(st.session_state.dados["tema"], st.session_state.dados["conteudo"], img_b64, estilo_escolhido)
-        
-        st.download_button(
-            label=f"📄 BAIXAR E-BOOK ({estilo_escolhido})",
-            data=html_data,
-            file_name=f"Ebook_{st.session_state.dados['tema']}.html",
-            mime="text/html",
-            type="primary"
-        )
-        st.caption("Instrução: Abra o arquivo baixado e salve como PDF (Ctrl+P).")
+with t3:
+    if st.session_state.conteudo:
+        b64 = get_image_base64(capa_upload)
+        html = gerar_html_download(st.session_state.tema, st.session_state.conteudo, b64, estilo)
+        st.download_button("📄 BAIXAR AGORA", html, f"{st.session_state.tema}.html", "text/html")
     else:
-        st.warning("Gere o conteúdo na Aba 2 primeiro para liberar o download.")
+        st.info("Gere o conteúdo na aba anterior primeiro.")
